@@ -6,6 +6,7 @@
 from sanic import Sanic, response
 import subprocess
 import app as user_src
+import torch
 
 # We do the model load-to-GPU step on server startup
 # so the model object is available globally for reuse
@@ -21,13 +22,15 @@ async def hello(request):
 # Healthchecks verify that the environment is correct on Banana Serverless
 @server.route('/healthcheck', methods=["GET"])
 def healthcheck(request):
-    # dependency free way to check if GPU is visible
+    # dependency free way to check if GPU is visible    
+    gpu_one = torch.cuda.is_available()
+
     gpu = False
     out = subprocess.run("nvidia-smi", shell=True)
     if out.returncode == 0: # success state on shell command
         gpu = True
 
-    return response.json({"state": "healthy", "gpu": gpu})
+    return response.json({"state": "healthy", "gpu": gpu, "gpu_one": gpu_one})
 
 # Inference POST handler at '/' is called for every http call from Banana
 @server.route('/', methods=["POST"]) 
