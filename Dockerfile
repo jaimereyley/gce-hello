@@ -8,9 +8,6 @@ ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
 
-# add the entitlements file
-ADD service_account.json .
-
 # We add the banana boilerplate here
 ADD server.py .
 EXPOSE 80
