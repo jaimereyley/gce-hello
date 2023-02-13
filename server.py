@@ -1,10 +1,49 @@
+# Do not edit if deploying to Banana Serverless
+# This file is boilerplate for the http server, and follows a strict interface.
+
+# Instead, edit the init() and inference() functions in app.py
+
 from sanic import Sanic, response
+import subprocess
+import app as user_src
 
-app = Sanic("MySanicApp")
+# We do the model load-to-GPU step on server startup
+# so the model object is available globally for reuse
+user_src.init()
 
-@app.get('/')
+# Create the http server app
+server = Sanic("my_app")
+
+@server.get('/hello')
 async def hello(request):
     return response.json({"state": "healthy", "gpu": False})
 
+# Healthchecks verify that the environment is correct on Banana Serverless
+@server.route('/healthcheck', methods=["GET"])
+def healthcheck(request):
+    # dependency free way to check if GPU is visible
+    gpu = False
+    out = subprocess.run("nvidia-smi", shell=True)
+    if out.returncode == 0: # success state on shell command
+        gpu = True
+
+    return response.json({"state": "healthy", "gpu": gpu})
+
+# Inference POST handler at '/' is called for every http call from Banana
+@server.route('/', methods=["POST"]) 
+def inference(request):
+    print("receving a request___")
+    try:
+        model_inputs = response.json.loads(request.json)
+    except:
+        model_inputs = request.json
+
+    print("model_inputs: ", model_inputs)
+    
+    output = user_src.inference(model_inputs)
+
+    return response.json(output)
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    server.run(host='0.0.0.0', port="80", workers=1)
